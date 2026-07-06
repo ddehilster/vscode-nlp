@@ -16,6 +16,7 @@ Issue-tracker bug fixes.
 - **#497** The Text view gains a **Collapse All** title-bar button.
 - **#898** "Create Mod file when none" now awaits creation before appending, so the file is created and selected before the append (previously a race left it not working).
 - **#746** Renaming a text file now opens the renamed file **beside** the current editor.
+- **#807** Inserting an existing pass whose name is already in the sequence no longer adds a duplicate entry — the file is overwritten in place, keeping the existing pass position.
 
 ### 3.2.12
 Analyzer summary: report lazy-loaded KB and dictionary separately.
