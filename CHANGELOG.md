@@ -14,6 +14,8 @@ Issue-tracker bug fixes.
 - **#741** Deleting a directory in the Text view now says "directory" (title and prompt) instead of "file".
 - **#559** File properties now include line and word counts alongside the file size.
 - **#497** The Text view gains a **Collapse All** title-bar button.
+- **#898** "Create Mod file when none" now awaits creation before appending, so the file is created and selected before the append (previously a race left it not working).
+- **#746** Renaming a text file now opens the renamed file **beside** the current editor.
 
 ### 3.2.12
 Analyzer summary: report lazy-loaded KB and dictionary separately.
