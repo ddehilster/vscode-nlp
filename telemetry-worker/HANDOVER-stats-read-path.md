@@ -158,6 +158,58 @@ The page's "Most Used Commands" currently shows `logView.refreshAll` at 2,512 us
 
 ---
 
+## 6a. Two new metrics arriving in 3.12.8 — do not build these yet
+
+Extension 3.12.8 starts recording **which of the shipped analyzers and templates people use**, which the page cannot show today because the fields did not exist when its queries were written.
+
+**Wait until there is data.** Nothing is retroactive. These fields appear only in events sent by 3.12.8 and later, so for the first days after release the tables will be empty or near-empty, and for the first couple of weeks they mostly describe *who upgrades quickly* rather than what is popular. Check `SELECT count(*) FROM events WHERE json_extract(props,'$.example') IS NOT NULL` before adding a panel; build it when that returns something worth showing.
+
+### The fields
+
+| Event | New field | Meaning |
+| --- | --- | --- |
+| `analyzer.run` | `props.example` | The analyzer's name — **only when it is one the extension ships**. Absent for a user's own analyzer. |
+| `analyzer.created` (new event) | `props.template` | Which shipped template was chosen. Several blocks combine as `A+B+C`, sorted. |
+| | `props.blocks` | How many blocks were combined, as a string. `1` means "chose this template"; more means "assembled from parts on top of Bare Minimum". |
+
+The values are folder names from two public repositories — `analyzer-templates` (Address Parser, Bare English, Bare Minimum, Date and Times, Email Addresses, Knowledge Base, NLPPlus Interface, Paragraphs Sentences, parse-en-us, Telephone Numbers, URLs, xout) and the `analyzers` repo (corporate, files, nlp-tutorials, nlpfix-analyzers, parse-en-us). The extension derives the list from the folders it downloads, so new templates appear without an extension release, and the list above will drift.
+
+### The one thing to get right
+
+**A missing `example` is not "unknown" — it means the user was running their own analyzer.** That is a real, reportable number, and mislabelling it as unknown or dropping it silently would misrepresent the split. Present it as its own row:
+
+```sql
+-- Shipped examples vs a user's own work
+SELECT COALESCE(json_extract(props,'$.example'), '(their own analyzer)') AS analyzer,
+       count(*)                   AS runs,
+       count(DISTINCT machine_id) AS machines
+FROM events
+WHERE event = 'analyzer.run'
+GROUP BY analyzer
+ORDER BY machines DESC, runs DESC;
+```
+
+### Which templates people start from
+
+```sql
+SELECT json_extract(props,'$.template')       AS template,
+       CAST(json_extract(props,'$.blocks') AS INTEGER) AS blocks,
+       count(*)                   AS created,
+       count(DISTINCT machine_id) AS machines
+FROM events
+WHERE event = 'analyzer.created'
+GROUP BY template, blocks
+ORDER BY created DESC;
+```
+
+Combinations arrive as a single `A+B` string. If the interesting question is "how often is each block used", split on `+` in PHP after the query rather than in SQL — SQLite has no split function and simulating one is not worth it at this data size.
+
+### Keep the existing safeguards
+
+Both panels are subject to §1: aggregate only, and keep the small-bucket floor. With 165 machines a template chosen once is close to identifying, and `(their own analyzer)` should never be broken down further.
+
+---
+
 ## 7. Reference
 
 - **Worker source, schema, deploy steps, example queries:** `telemetry-worker/` in `github.com/VisualText/vscode-nlp`
@@ -176,3 +228,5 @@ The page's "Most Used Commands" currently shows `logView.refreshAll` at 2,512 us
 4. **Where the shortcode lives** — file path and shortcode tag.
 
 That is enough for the vscode-nlp side to build the `/stats` route to match, so the swap is a one-line change on the website.
+
+**Do §0–§3 first.** The new metrics in §6a are additive and can wait; the read path is the part with a security question attached, and it is also the part that decides where the §6a queries should live. If the answer is "a `/stats` route", the two new panels belong in that route rather than being added to whatever runs today and then moved.
